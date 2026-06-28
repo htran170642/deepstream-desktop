@@ -1,7 +1,18 @@
+# Service library: server impl + lifecycle, so tests can link it without main().
+add_library(service_lib STATIC
+  src/HealthServiceImpl.cpp
+  src/HealthServiceImpl.hpp
+  src/GrpcServer.cpp
+  src/GrpcServer.hpp
+)
+target_include_directories(service_lib PUBLIC src)
+target_link_libraries(service_lib PUBLIC dsd_proto dsd_logging)
+
+# Thin executable: just the entry point, linking the service library.
 add_executable(service
   src/main.cpp
 )
-target_link_libraries(service PRIVATE dsd_logging dsd_proto)
+target_link_libraries(service PRIVATE service_lib)
 
 find_package(SQLite3 REQUIRED)
 target_link_libraries(service PRIVATE SQLite3::SQLite3)

@@ -1,9 +1,18 @@
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
 
 # Run moc automatically on any source/header that contains Q_OBJECT.
 set(CMAKE_AUTOMOC ON)
 
-# UI library: holds MainWindow + pages so tests can link the UI without main().
+# Qt-free gRPC client. Separate library so the integration test can link it
+# without pulling in Qt or needing a QApplication.
+add_library(desktop_client_lib STATIC
+  src/client/HealthClient.cpp
+  src/client/HealthClient.hpp
+)
+target_include_directories(desktop_client_lib PUBLIC src)
+target_link_libraries(desktop_client_lib PUBLIC dsd_proto dsd_logging)
+
+# UI library: MainWindow + pages. Links the client lib and Qt.
 add_library(desktop_lib STATIC
   src/MainWindow.cpp
   src/MainWindow.hpp
@@ -20,11 +29,13 @@ add_library(desktop_lib STATIC
   src/pages/SettingsPage.cpp
   src/pages/SettingsPage.hpp
 )
-
-# `src` is exposed PUBLIC so both the exe and the tests can include
-# "MainWindow.hpp" and "pages/...". dsd_logging brings in "logging/Logger.hpp".
 target_include_directories(desktop_lib PUBLIC src)
-target_link_libraries(desktop_lib PUBLIC Qt6::Widgets dsd_logging)
+target_link_libraries(desktop_lib PUBLIC
+  Qt6::Widgets
+  Qt6::Concurrent
+  desktop_client_lib
+  dsd_logging
+)
 
 # Thin executable: just the entry point, linking the UI library.
 add_executable(desktop

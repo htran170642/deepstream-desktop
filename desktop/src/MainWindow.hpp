@@ -1,9 +1,14 @@
 #pragma once
+#include <memory>
 
+#include <QFutureWatcher>
 #include <QMainWindow>
+
+#include "client/HealthClient.hpp"
 
 // Forward declarations: we only use pointers here, so no need to include the
 // full Qt headers in this header (faster compiles, less coupling).
+class QAction;
 class QListWidget;
 class QStackedWidget;
 
@@ -32,8 +37,16 @@ public:
 private:
     void buildToolBar();
 
+    // Runs HealthClient::check() off the UI thread and updates the status bar.
+    void checkService();
+    void onHealthChecked();
+
     QListWidget* sidebar_ = nullptr;
     QStackedWidget* stack_ = nullptr;
+    QAction* checkAction_ = nullptr;
+
+    std::shared_ptr<HealthClient> health_client_;
+    QFutureWatcher<ServiceHealth> health_watcher_;
 };
 
 }  // namespace dsd

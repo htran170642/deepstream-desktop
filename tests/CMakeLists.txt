@@ -20,3 +20,16 @@ add_test(NAME navigation_test COMMAND navigation_test)
 set_tests_properties(navigation_test PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# gRPC round-trip test — Qt-free (server_lib + client lib), so it can be
+# auto-discovered like the smoke test.
+add_executable(health_roundtrip_test
+  health_roundtrip_test.cpp
+)
+target_link_libraries(health_roundtrip_test PRIVATE
+  service_lib
+  desktop_client_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(health_roundtrip_test)

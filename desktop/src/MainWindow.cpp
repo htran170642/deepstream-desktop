@@ -1,11 +1,13 @@
 #include "MainWindow.hpp"
 
+#include <QAction>
+#include <QFuture>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QToolBar>
-#include <QWidget>
+#include <QtConcurrent>
 
 #include "logging/Logger.hpp"
 #include "pages/AlertPage.hpp"
@@ -16,7 +18,10 @@
 
 namespace dsd {
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
+MainWindow::MainWindow(QWidget* parent) : 
+    QMainWindow(parent),
+    health_client_(std::make_shared<HealthClient>())
+{
     setWindowTitle("DeepStreamDesktop");
     resize(1024, 768);
 
@@ -50,6 +55,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(sidebar_, &QListWidget::currentRowChanged,
             stack_, &QStackedWidget::setCurrentIndex);
 
+    // The worker thread signals back here when the health check finishes.
+    connect(&health_watcher_, &QFutureWatcher<ServiceHealth>::finished,
+            this, &MainWindow::onHealthChecked);
+
     buildToolBar();
     statusBar()->showMessage("Ready");
 
@@ -60,9 +69,40 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 void MainWindow::buildToolBar() {
     auto* toolbar = addToolBar("Main");
     toolbar->setMovable(false);
-    // Placeholder actions; wired up in later feature phases.
-    toolbar->addAction("Refresh");
-    toolbar->addAction("Settings");
+    checkAction_ = toolbar->addAction("Check Service");
+    connect(checkAction_, &QAction::triggered, this, &MainWindow::checkService);
+}
+
+void MainWindow::checkService() {
+    // Disable the action while a check is in flight to avoid overlapping calls.
+    checkAction_->setEnabled(false);
+    statusBar()->showMessage("Checking service…");
+
+    // Capture a shared_ptr copy (not `this`): the worker keeps the client alive
+    // even if MainWindow is destroyed mid-check, avoiding a use-after-free.
+    auto client = health_client_;
+    QFuture<ServiceHealth> future =
+        QtConcurrent::run([client] { return client->check(); });
+    health_watcher_.setFuture(future);
+
+}
+
+void MainWindow::onHealthChecked() {
+    QString message;
+    switch (health_watcher_.result()) {
+        case ServiceHealth::Serving:
+            message = "Service: SERVING";
+            break;
+        case ServiceHealth::NotServing:
+            message = "Service: NOT SERVING";
+            break;
+        case ServiceHealth::Unreachable:
+            message = "Service: unreachable";
+            break;
+    }
+
+    statusBar()->showMessage(message);
+    checkAction_->setEnabled(true);
 }
 
 void MainWindow::selectPage(Page page) {
