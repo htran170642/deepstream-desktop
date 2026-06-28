@@ -1,6 +1,6 @@
 #include <QApplication>
-#include <QMainWindow>
 
+#include "MainWindow.hpp"
 #include "logging/Logger.hpp"
 
 int main(int argc, char* argv[]) {
@@ -9,9 +9,7 @@ int main(int argc, char* argv[]) {
 
     QApplication app(argc, argv);
 
-    QMainWindow window;
-    window.setWindowTitle("DeepStreamDesktop");
-    window.resize(1024, 768);
+    dsd::MainWindow window;
     window.show();
 
     return app.exec();
