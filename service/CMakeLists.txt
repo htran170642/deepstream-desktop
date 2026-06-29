@@ -1,5 +1,5 @@
-# Service library: server impl + lifecycle + camera module, so tests can link
-# it without main().
+# Service library: server impl + lifecycle + camera module + pipeline, so tests
+# can link it without main().
 add_library(service_lib STATIC
   src/HealthServiceImpl.cpp
   src/HealthServiceImpl.hpp
@@ -12,9 +12,23 @@ add_library(service_lib STATIC
   src/CameraManager.hpp
   src/CameraServiceImpl.cpp
   src/CameraServiceImpl.hpp
+  src/pipeline/Detection.hpp
+  src/pipeline/Pipeline.hpp
+  src/pipeline/DetectionProcessor.cpp
+  src/pipeline/DetectionProcessor.hpp
+  src/pipeline/FakePipeline.cpp
+  src/pipeline/FakePipeline.hpp
+  src/pipeline/PipelineFactory.cpp
+  src/pipeline/PipelineFactory.hpp
+  src/pipeline/PipelineManager.cpp
+  src/pipeline/PipelineManager.hpp
 )
 target_include_directories(service_lib PUBLIC src)
 target_link_libraries(service_lib PUBLIC dsd_proto dsd_logging)
+
+# std::thread (FakePipeline / PipelineManager) needs the threads library.
+find_package(Threads REQUIRED)
+target_link_libraries(service_lib PUBLIC Threads::Threads)
 
 # SQLite is an implementation detail of the repository (no sqlite types in
 # public headers), so link it PRIVATE.
@@ -29,6 +43,7 @@ target_link_libraries(service PRIVATE service_lib)
 
 # DeepStream is optional on the host. Enabled inside the Docker container
 # (NVIDIA DeepStream base image), where the SDK lives at the path below.
+# Stage 5b will add DeepStreamPipeline.cpp + GStreamer/nvds inside this block.
 if(ENABLE_DEEPSTREAM)
   set(DEEPSTREAM_ROOT "/opt/nvidia/deepstream/deepstream"
       CACHE PATH "DeepStream SDK root")

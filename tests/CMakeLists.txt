@@ -55,3 +55,25 @@ target_link_libraries(camera_roundtrip_test PRIVATE
   GTest::gtest_main
 )
 gtest_discover_tests(camera_roundtrip_test)
+
+# DetectionProcessor unit test — pure logic, auto-discovered.
+add_executable(detection_processor_test
+  detection_processor_test.cpp
+)
+target_link_libraries(detection_processor_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(detection_processor_test)
+
+# PipelineManager test — lifecycle via an injected FakePipeline factory.
+add_executable(pipeline_manager_test
+  pipeline_manager_test.cpp
+)
+target_link_libraries(pipeline_manager_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(pipeline_manager_test)
