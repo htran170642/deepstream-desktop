@@ -1,21 +1,31 @@
-# Service library: server impl + lifecycle, so tests can link it without main().
+# Service library: server impl + lifecycle + camera module, so tests can link
+# it without main().
 add_library(service_lib STATIC
   src/HealthServiceImpl.cpp
   src/HealthServiceImpl.hpp
   src/GrpcServer.cpp
   src/GrpcServer.hpp
+  src/CameraModel.hpp
+  src/CameraRepository.cpp
+  src/CameraRepository.hpp
+  src/CameraManager.cpp
+  src/CameraManager.hpp
+  src/CameraServiceImpl.cpp
+  src/CameraServiceImpl.hpp
 )
 target_include_directories(service_lib PUBLIC src)
 target_link_libraries(service_lib PUBLIC dsd_proto dsd_logging)
+
+# SQLite is an implementation detail of the repository (no sqlite types in
+# public headers), so link it PRIVATE.
+find_package(SQLite3 REQUIRED)
+target_link_libraries(service_lib PRIVATE SQLite3::SQLite3)
 
 # Thin executable: just the entry point, linking the service library.
 add_executable(service
   src/main.cpp
 )
 target_link_libraries(service PRIVATE service_lib)
-
-find_package(SQLite3 REQUIRED)
-target_link_libraries(service PRIVATE SQLite3::SQLite3)
 
 # DeepStream is optional on the host. Enabled inside the Docker container
 # (NVIDIA DeepStream base image), where the SDK lives at the path below.

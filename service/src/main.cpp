@@ -1,4 +1,7 @@
+#include "CameraManager.hpp"
+#include "CameraServiceImpl.hpp"
 #include "GrpcServer.hpp"
+#include "HealthServiceImpl.hpp"
 #include "logging/Logger.hpp"
 
 namespace {
@@ -9,6 +12,8 @@ constexpr char kServerAddress[] = "0.0.0.0:50051";
 // Host build: localhost only — don't expose the service on other interfaces.
 constexpr char kServerAddress[] = "127.0.0.1:50051";
 #endif
+
+constexpr char kDatabasePath[] = "deepstream.db";
 }  // namespace
 
 int main() {
@@ -23,13 +28,26 @@ int main() {
     log->info("DeepStream support: disabled (host build)");
 #endif
 
-    dsd::GrpcServer server(kServerAddress);
-    if (server.start() == 0) {
-        log->error("Service failed to start; exiting");
+    try {
+        // Service objects must outlive the server (it only stores pointers).
+        dsd::HealthServiceImpl health_service;
+        dsd::CameraManager camera_manager(kDatabasePath);
+        dsd::CameraServiceImpl camera_service(camera_manager);
+
+        dsd::GrpcServer server(kServerAddress);
+        server.registerService(&health_service);
+        server.registerService(&camera_service);
+
+        if (server.start() == 0) {
+            log->error("Service failed to start; exiting");
+            return 1;
+        }
+
+        server.wait();  // block, serving requests until terminated
+    } catch (const std::exception& e) {
+        log->error("Fatal error: {}", e.what());
         return 1;
     }
 
-    // Block here serving requests until the process is terminated.
-    server.wait();
     return 0;
 }

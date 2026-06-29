@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package dsd;
+
+// CRUD service for managing cameras. Persistence lives in the service (SQLite);
+// the desktop only ever talks to it over gRPC.
+service CameraService {
+  rpc AddCamera(AddCameraRequest) returns (CameraResponse);
+  rpc UpdateCamera(UpdateCameraRequest) returns (CameraResponse);
+  rpc DeleteCamera(DeleteCameraRequest) returns (DeleteCameraResponse);
+  rpc ListCameras(ListCamerasRequest) returns (ListCamerasResponse);
+}
+
+message Camera {
+  int64 id = 1;        // assigned by the service; 0 means "not yet persisted"
+  string name = 2;
+  string rtsp_url = 3;
+  bool enabled = 4;
+}
+
+message AddCameraRequest {
+  string name = 1;
+  string rtsp_url = 2;
+  bool enabled = 3;
+}
+
+message UpdateCameraRequest {
+  Camera camera = 1;   // full camera, identified by its id
+}
+
+// Shared by AddCamera and UpdateCamera: returns the resulting camera.
+message CameraResponse {
+  Camera camera = 1;
+}
+
+message DeleteCameraRequest {
+  int64 id = 1;
+}
+
+message DeleteCameraResponse {}
+
+message ListCamerasRequest {}
+
+message ListCamerasResponse {
+  repeated Camera cameras = 1;
+}

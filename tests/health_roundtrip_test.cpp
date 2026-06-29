@@ -5,12 +5,16 @@
 
 #include "GrpcServer.hpp"
 #include "client/HealthClient.hpp"
+#include "HealthServiceImpl.hpp"
+
 
 namespace {
 
 // Full round-trip: a real server on an ephemeral port, a real client over gRPC.
 TEST(HealthRoundtrip, ServingWhenServerRunning) {
-    dsd::GrpcServer server("localhost:0");  // port 0 -> OS picks a free port
+    dsd::HealthServiceImpl health_service;          // must outlive the server
+    dsd::GrpcServer server("localhost:0");          // port 0 -> OS picks a free port
+    server.registerService(&health_service);        // <-- new API: register before start
     const int port = server.start();
     ASSERT_GT(port, 0) << "server failed to start";
 

@@ -16,6 +16,10 @@ GrpcServer::~GrpcServer() {
     shutdown();
 }
 
+void GrpcServer::registerService(grpc::Service* service) {
+    services_.push_back(service);
+}
+
 int GrpcServer::start() {
     grpc::ServerBuilder builder;
 
@@ -23,7 +27,9 @@ int GrpcServer::start() {
     // `bound_port_` receives the actual port (relevant when address uses :0).
     builder.AddListeningPort(address_, grpc::InsecureServerCredentials(),
                              &bound_port_);
-    builder.RegisterService(&health_service_);
+    for (grpc::Service* service : services_) {
+        builder.RegisterService(service);
+    }
 
     server_ = builder.BuildAndStart();
     if (!server_ || bound_port_ == 0) {
@@ -31,7 +37,8 @@ int GrpcServer::start() {
         return 0;
     }
 
-    Logger::get()->info("gRPC server listening on port {}", bound_port_);
+    Logger::get()->info("gRPC server listening on port {} ({} service(s))",
+                        bound_port_, services_.size());
     return bound_port_;
 }
 

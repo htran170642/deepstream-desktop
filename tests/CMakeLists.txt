@@ -21,8 +21,7 @@ set_tests_properties(navigation_test PROPERTIES
   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
-# gRPC round-trip test — Qt-free (server_lib + client lib), so it can be
-# auto-discovered like the smoke test.
+# gRPC round-trip test — Qt-free (service_lib + client lib), auto-discovered.
 add_executable(health_roundtrip_test
   health_roundtrip_test.cpp
 )
@@ -33,3 +32,26 @@ target_link_libraries(health_roundtrip_test PRIVATE
   GTest::gtest_main
 )
 gtest_discover_tests(health_roundtrip_test)
+
+# Camera repository test — SQLite CRUD against an in-memory database.
+add_executable(camera_repository_test
+  camera_repository_test.cpp
+)
+target_link_libraries(camera_repository_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(camera_repository_test)
+
+# Camera round-trip test — full CameraClient -> gRPC -> service -> SQLite path.
+add_executable(camera_roundtrip_test
+  camera_roundtrip_test.cpp
+)
+target_link_libraries(camera_roundtrip_test PRIVATE
+  service_lib
+  desktop_client_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(camera_roundtrip_test)

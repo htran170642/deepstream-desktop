@@ -3,11 +3,13 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
 # Run moc automatically on any source/header that contains Q_OBJECT.
 set(CMAKE_AUTOMOC ON)
 
-# Qt-free gRPC client. Separate library so the integration test can link it
+# Qt-free gRPC clients. Separate library so the integration tests can link them
 # without pulling in Qt or needing a QApplication.
 add_library(desktop_client_lib STATIC
   src/client/HealthClient.cpp
   src/client/HealthClient.hpp
+  src/client/CameraClient.cpp
+  src/client/CameraClient.hpp
 )
 target_include_directories(desktop_client_lib PUBLIC src)
 target_link_libraries(desktop_client_lib PUBLIC dsd_proto dsd_logging)
@@ -22,6 +24,8 @@ add_library(desktop_lib STATIC
   src/pages/DashboardPage.hpp
   src/pages/CameraPage.cpp
   src/pages/CameraPage.hpp
+  src/pages/CameraDialog.cpp
+  src/pages/CameraDialog.hpp
   src/pages/LiveViewPage.cpp
   src/pages/LiveViewPage.hpp
   src/pages/AlertPage.cpp
