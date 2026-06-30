@@ -31,6 +31,9 @@ FrameUpdate fromProto(const DetectionFrame& f) {
         b.track_id = d.track_id();
         u.detections.push_back(std::move(b));
     }
+
+    const std::string& bytes = f.frame();
+    u.jpeg.assign(bytes.begin(), bytes.end());
     return u;
 }
 
@@ -106,10 +109,11 @@ void StreamClient::runStream(std::int64_t camera_id, FrameCallback on_frame) {
     DetectionFrame frame;
     while (streaming_.load() && reader->Read(&frame)) {
         if (on_frame) {
-            on_frame(fromProto(frame));  // called on this worker thread
+            on_frame(std::make_shared<const FrameUpdate>(fromProto(frame)));
         }
         frame.Clear();
     }
+
     reader->Finish();  // collect final status (ignored; stream ended/cancelled)
 }
 

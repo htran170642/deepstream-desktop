@@ -28,7 +28,7 @@ public:
 private:
     void startSelected();
     void stopSelected();
-    void onFrame(const FrameUpdate& frame);  // runs on the UI thread
+    void onFrame(std::shared_ptr<const FrameUpdate> frame);  // runs on the UI thread
     void updateFps();
 
     std::shared_ptr<StreamClient> client_;

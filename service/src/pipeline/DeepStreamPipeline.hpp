@@ -9,6 +9,9 @@
 #include <unordered_map>
 
 #include <gst/gst.h>
+#include <nvbufsurface.h>
+#include "gstnvdsmeta.h"
+#include "nvds_obj_encode.h"
 
 #include "pipeline/Pipeline.hpp"
 
@@ -31,7 +34,7 @@ public:
     void removeSource(std::int64_t camera_id) override;
     std::size_t sourceCount() const override;
 
-    void setDetectionCallback(DetectionCallback callback) override;
+    void setFrameCallback(FrameCallback callback) override;
 
 private:
     struct Source {
@@ -49,7 +52,9 @@ private:
                                            gpointer user_data);
     void handleBatchMeta(GstBuffer* buffer);
 
-    DetectionCallback callback_;
+    FrameCallback callback_;
+    NvDsObjEncCtxHandle obj_ctx_ = nullptr;  // GPU JPEG encoder context
+
     std::atomic<bool> running_{false};
     std::thread loop_thread_;
     GMainLoop* loop_ = nullptr;

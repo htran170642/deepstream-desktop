@@ -6,7 +6,7 @@
 
 #include "gstnvdsmeta.h"   // NvDsBatchMeta, NvDsFrameMeta, NvDsObjectMeta, ...
 #include "logging/Logger.hpp"
-
+#include <nvbufsurface.h>   // NvBufSurface (raw frames for the encoder)
 
 namespace dsd {
 namespace {
@@ -41,6 +41,15 @@ bool DeepStreamPipeline::start() {
         return false;
     }
 
+    obj_ctx_ = nvds_obj_enc_create_context(0);  // gpu_id = 0
+    if (!obj_ctx_) {
+        Logger::get()->error("DeepStreamPipeline: failed to create JPEG encoder");
+        gst_object_unref(pipeline_);
+        pipeline_ = nullptr;
+        streammux_ = nullptr;
+        return false;
+    }
+
     // Move the whole pipeline to PLAYING.
     if (gst_element_set_state(pipeline_, GST_STATE_PLAYING) ==
         GST_STATE_CHANGE_FAILURE) {
@@ -62,16 +71,16 @@ bool DeepStreamPipeline::start() {
 }
 
 void DeepStreamPipeline::runLoop() {
-    g_main_loop_run(loop_);  // blocks here until stop() calls g_main_loop_quit()
+    g_main_loop_run(loop_);   // returns on EOS (bus quits) or stop()
+    running_.store(false);    // so PipelineManager can detect an EOS-driven stop
 }
 
 void DeepStreamPipeline::stop() {
-    if (!running_.exchange(false)) {
-        return;  // was not running
-    }
+    const bool was_active = (loop_ != nullptr) || (pipeline_ != nullptr);
+    running_.store(false);
 
     if (loop_) {
-        g_main_loop_quit(loop_);  // unblock runLoop()
+        g_main_loop_quit(loop_);
     }
     if (loop_thread_.joinable()) {
         loop_thread_.join();
@@ -80,18 +89,18 @@ void DeepStreamPipeline::stop() {
         g_main_loop_unref(loop_);
         loop_ = nullptr;
     }
-
     if (pipeline_) {
         gst_element_set_state(pipeline_, GST_STATE_NULL);
-        gst_object_unref(pipeline_);  // unrefs the whole bin (children included)
+        gst_object_unref(pipeline_);
         pipeline_ = nullptr;
-        streammux_ = nullptr;         // child of pipeline_, already gone
+        streammux_ = nullptr;
     }
-
+    if (obj_ctx_) {
+        nvds_obj_enc_destroy_context(obj_ctx_);
+        obj_ctx_ = nullptr;
+    }
     {
         std::lock_guard<std::mutex> lock(sources_mutex_);
-        // Release the streammux request-pad refs we still hold (the streammux
-        // itself is already gone with pipeline_ above).
         for (auto& entry : sources_) {
             gst_object_unref(entry.second.mux_sink_pad);
         }
@@ -99,9 +108,11 @@ void DeepStreamPipeline::stop() {
         source_to_camera_.clear();
         next_source_id_ = 0;
     }
-
-    Logger::get()->info("DeepStreamPipeline stopped");
+    if (was_active) {
+        Logger::get()->info("DeepStreamPipeline stopped");
+    }
 }
+
 
 bool DeepStreamPipeline::isRunning() const {
     return running_.load();
@@ -112,7 +123,7 @@ std::size_t DeepStreamPipeline::sourceCount() const {
     return sources_.size();
 }
 
-void DeepStreamPipeline::setDetectionCallback(DetectionCallback callback) {
+void DeepStreamPipeline::setFrameCallback(FrameCallback callback) {
     callback_ = std::move(callback);
 }
 
@@ -180,9 +191,11 @@ bool DeepStreamPipeline::buildPipeline() {
     // Bus watch: log pipeline errors and end-of-stream. A captureless lambda
     // converts to the C callback; `this` is passed through user_data.
     GstBus* bus = gst_element_get_bus(pipeline_);
+
     gst_bus_add_watch(
         bus,
-        +[](GstBus*, GstMessage* msg, gpointer) -> gboolean {
+        +[](GstBus*, GstMessage* msg, gpointer user_data) -> gboolean {
+            auto* self = static_cast<DeepStreamPipeline*>(user_data);
             switch (GST_MESSAGE_TYPE(msg)) {
                 case GST_MESSAGE_ERROR: {
                     GError* err = nullptr;
@@ -194,12 +207,13 @@ bool DeepStreamPipeline::buildPipeline() {
                     break;
                 }
                 case GST_MESSAGE_EOS:
-                    Logger::get()->info("GStreamer end-of-stream");
+                    Logger::get()->info("End-of-stream; stopping pipeline");
+                    g_main_loop_quit(self->loop_);  // exit runLoop -> parks pipeline
                     break;
                 default:
                     break;
             }
-            return TRUE;  // keep the watch installed
+            return TRUE;
         },
         this);
     gst_object_unref(bus);
@@ -314,6 +328,11 @@ void DeepStreamPipeline::removeSource(std::int64_t camera_id) {
     }
 
     // Tear down OUTSIDE the lock.
+    // TODO(multi-camera): release_request_pad below can hang if this source has
+    // reached EOS while the streammux is still live. Removing one of several
+    // sources needs the runtime-src-del procedure (send EOS to the mux sink pad,
+    // wait via a probe, then release). Single-camera stop avoids this path by
+    // tearing down the whole pipeline (PipelineManager::stop).
     gst_element_set_state(src.bin, GST_STATE_NULL);
     gst_element_release_request_pad(streammux_, src.mux_sink_pad);
     gst_object_unref(src.mux_sink_pad);
@@ -340,18 +359,33 @@ void DeepStreamPipeline::handleBatchMeta(GstBuffer* buffer) {
         return;
     }
 
+    // Map the buffer to the NvBufSurface (raw frames) so the encoder can read it.
+    GstMapInfo map_info;
+    if (!gst_buffer_map(buffer, &map_info, GST_MAP_READ)) {
+        return;
+    }
+    auto* surface = reinterpret_cast<NvBufSurface*>(map_info.data);
+
+    // Pass 1: request a full-frame JPEG encode for every source-frame.
+    for (NvDsMetaList* l = batch_meta->frame_meta_list; l; l = l->next) {
+        auto* frame_meta = static_cast<NvDsFrameMeta*>(l->data);
+        NvDsObjEncUsrArgs args = {};
+        args.isFrame = 1;          // encode the whole frame (not an object crop)
+        args.saveImg = FALSE;
+        args.attachUsrMeta = TRUE; // attach the JPEG as frame user meta
+        args.quality = 80;
+        nvds_obj_enc_process(obj_ctx_, &args, surface, nullptr, frame_meta);
+    }
+    nvds_obj_enc_finish(obj_ctx_);  // flush: encoded data is now attached
+
     const std::int64_t ts = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::system_clock::now().time_since_epoch())
                                 .count();
 
-    std::vector<model::Detection> detections;
+    // Pass 2: build one model::Frame per source (detections + JPEG).
+    for (NvDsMetaList* l = batch_meta->frame_meta_list; l; l = l->next) {
+        auto* frame_meta = static_cast<NvDsFrameMeta*>(l->data);
 
-    // One frame_meta per source in this batch.
-    for (NvDsMetaList* l_frame = batch_meta->frame_meta_list; l_frame != nullptr;
-         l_frame = l_frame->next) {
-        auto* frame_meta = static_cast<NvDsFrameMeta*>(l_frame->data);
-
-        // Map the DeepStream source_id back to our camera_id.
         std::int64_t camera_id = -1;
         {
             std::lock_guard<std::mutex> lock(sources_mutex_);
@@ -361,45 +395,56 @@ void DeepStreamPipeline::handleBatchMeta(GstBuffer* buffer) {
             }
         }
         if (camera_id < 0) {
-            continue;  // source already removed
+            continue;
         }
 
-        const float frame_w =
-            static_cast<float>(frame_meta->source_frame_width);
-        const float frame_h =
-            static_cast<float>(frame_meta->source_frame_height);
+        model::Frame frame;
+        frame.camera_id = camera_id;
+        frame.timestamp_ms = ts;
+        frame.width = static_cast<int>(frame_meta->source_frame_width);
+        frame.height = static_cast<int>(frame_meta->source_frame_height);
 
-        // One obj_meta per detected object in this frame.
-        for (NvDsMetaList* l_obj = frame_meta->obj_meta_list; l_obj != nullptr;
-             l_obj = l_obj->next) {
-            auto* obj = static_cast<NvDsObjectMeta*>(l_obj->data);
-
+        const float fw = static_cast<float>(frame_meta->source_frame_width);
+        const float fh = static_cast<float>(frame_meta->source_frame_height);
+        for (NvDsMetaList* lo = frame_meta->obj_meta_list; lo; lo = lo->next) {
+            auto* obj = static_cast<NvDsObjectMeta*>(lo->data);
             model::Detection d;
             d.camera_id = camera_id;
             d.class_id = obj->class_id;
-            d.label = obj->obj_label;             // e.g. "car", "person"
+            d.label = obj->obj_label;
             d.confidence = obj->confidence;
-            d.track_id = static_cast<std::int64_t>(obj->object_id);  // UNTRACKED -> -1
+            d.track_id = static_cast<std::int64_t>(obj->object_id);
             d.timestamp_ms = ts;
-
-            // nvinfer/tracker give pixel coords; normalize to [0, 1].
             const NvOSD_RectParams& r = obj->rect_params;
-            if (frame_w > 0.0f && frame_h > 0.0f) {
-                d.box.x = r.left / frame_w;
-                d.box.y = r.top / frame_h;
-                d.box.width = r.width / frame_w;
-                d.box.height = r.height / frame_h;
+            if (fw > 0.0f && fh > 0.0f) {
+                d.box.x = r.left / fw;
+                d.box.y = r.top / fh;
+                d.box.width = r.width / fw;
+                d.box.height = r.height / fh;
             }
+            frame.detections.push_back(std::move(d));
+        }
 
-            detections.push_back(std::move(d));
+        // The encoded JPEG is attached to the frame as NVDS_CROP_IMAGE_META.
+        for (NvDsMetaList* lu = frame_meta->frame_user_meta_list; lu;
+             lu = lu->next) {
+            auto* um = static_cast<NvDsUserMeta*>(lu->data);
+            if (um->base_meta.meta_type != NVDS_CROP_IMAGE_META) {
+                continue;
+            }
+            auto* enc = static_cast<NvDsObjEncOutParams*>(um->user_meta_data);
+            if (enc && enc->outBuffer && enc->outLen > 0) {
+                frame.jpeg.assign(enc->outBuffer, enc->outBuffer + enc->outLen);
+            }
+            break;
+        }
+
+        if (callback_) {
+            callback_(std::nove(frame));  // one frame per source
         }
     }
 
-    // Invoke OUTSIDE any GStreamer lock; PipelineManager::onDetections is
-    // thread-safe and runs the DetectionProcessor.
-    if (callback_ && !detections.empty()) {
-        callback_(detections);
-    }
+    gst_buffer_unmap(buffer, &map_info);
 }
 
 }  // namespace dsd

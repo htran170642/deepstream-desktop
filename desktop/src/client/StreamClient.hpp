@@ -31,7 +31,7 @@ struct FrameUpdate {
     int frame_width = 0;
     int frame_height = 0;
     std::vector<DetectionBox> detections;
-    // 6b: decoded image bytes go here; empty in 6a.
+    std::vector<std::uint8_t> jpeg;  // encoded frame; empty in 6a / no-video
 };
 
 // Qt-free gRPC client for the Live View stream. start()/stop() control the
@@ -39,7 +39,10 @@ struct FrameUpdate {
 // delivers each FrameUpdate via the callback (called on that worker thread).
 class StreamClient {
 public:
-    using FrameCallback = std::function<void(const FrameUpdate&)>;
+    // Frames are passed as shared_ptr<const ...> to avoid copying the JPEG
+    // bytes across the worker -> UI thread boundary.
+    using FrameCallback =
+        std::function<void(std::shared_ptr<const FrameUpdate>)>;
 
     explicit StreamClient(const std::string& address = "localhost:50051");
     ~StreamClient();

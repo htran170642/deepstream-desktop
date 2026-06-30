@@ -65,10 +65,11 @@ void LiveViewPage::startSelected() {
 
     // Stream runs on a worker thread; marshal each frame to the UI thread.
     // Using `this` as the context makes Qt drop pending events if we're gone.
-    client_->subscribe(id, [this](const FrameUpdate& f) {
+    client_->subscribe(id, [this](std::shared_ptr<const FrameUpdate> f) {
         QMetaObject::invokeMethod(
             this, [this, f] { onFrame(f); }, Qt::QueuedConnection);
     });
+
 
     start_button_->setEnabled(false);
     stop_button_->setEnabled(true);
@@ -83,19 +84,18 @@ void LiveViewPage::stopSelected() {
     }
     fps_timer_->stop();
     fps_label_->setText("FPS: 0");
-    view_->setFrame(FrameUpdate{});  // clear the canvas
+    view_->setFrame(nullptr);  // clear the canvas
     start_button_->setEnabled(true);
     stop_button_->setEnabled(false);
 }
 
-void LiveViewPage::onFrame(const FrameUpdate& frame) {
+void LiveViewPage::onFrame(std::shared_ptr<const FrameUpdate> frame) {
     if (active_camera_ < 0) {
         return;  // a frame queued before Stop arrived late — ignore it
     }
-    view_->setFrame(frame);
+    view_->setFrame(std::move(frame));
     ++frame_count_;
 }
-
 
 void LiveViewPage::updateFps() {
     fps_label_->setText(QString("FPS: %1").arg(frame_count_));

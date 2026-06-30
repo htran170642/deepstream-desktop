@@ -14,7 +14,7 @@ namespace dsd {
 
 class CameraManager;
 class PipelineManager;
-namespace model { struct Detection; }  // forward-declare the domain type
+namespace model { struct Frame; }  // forward-declare the domain type
 
 // gRPC boundary for Live View. Orchestrates CameraManager (look up cameras) and
 // PipelineManager (start/stop pipelines), and fans detections out to subscribed
@@ -34,8 +34,8 @@ public:
         grpc::ServerContext* context, const CameraStreamRequest* request,
         grpc::ServerWriter<DetectionFrame>* writer) override;
 
-    // Detection sink: thread-safe, called on a pipeline worker thread.
-    void broadcast(const std::vector<model::Detection>& detections);
+    // Frame sink: thread-safe, called on a pipeline worker thread.
+    void broadcast(model::Frame frame);
 
 private:
     // One connected StreamDetections client: a bounded queue + wakeup.
@@ -43,7 +43,7 @@ private:
         std::int64_t camera_id = 0;
         std::mutex mutex;
         std::condition_variable cv;
-        std::deque<DetectionFrame> queue;
+        std::deque<std::shared_ptr<const DetectionFrame>> queue;
         bool cancelled = false;
     };
 

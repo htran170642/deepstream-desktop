@@ -15,23 +15,29 @@ PipelineManager::~PipelineManager() {
     stopAll();
 }
 
-void PipelineManager::setDetectionSink(DetectionSink sink) {
+void PipelineManager::setFrameSink(FrameSink sink) {
     // Contract: call before start(). sink_ is read on the pipeline worker
-    // thread (onDetections) without a lock, so it must not change while running.
+    // thread (onFrame) without a lock, so it must not change while running.
     sink_ = std::move(sink);
 }
-
 
 bool PipelineManager::start(const model::Camera& camera) {
     std::lock_guard<std::mutex> lock(mutex_);
 
+    // A previous pipeline that ended on its own (EOS) is no longer running.
+    if (pipeline_ && !pipeline_->isRunning()) {
+        pipeline_->stop();        // clean teardown of the parked pipeline
+        pipeline_.reset();
+        active_cameras_.clear();
+    }
+    
     if (!pipeline_) {
         // First source: create and start the pipeline.
         pipeline_ = factory_();
-        pipeline_->setDetectionCallback(
-            [this](const std::vector<model::Detection>& dets) {
-                onDetections(dets);
-            });
+        pipeline_->setFrameCallback(
+            [this](model::Frame frame) { onFrame(std::move(frame)); });
+
+
         if (!pipeline_->start()) {
             Logger::get()->error("Pipeline failed to start");
             pipeline_.reset();
@@ -65,10 +71,11 @@ void PipelineManager::stop(std::int64_t camera_id) {
         return;  // not an active source
     }
     if (pipeline_) {
-        pipeline_->removeSource(camera_id);
         if (active_cameras_.empty()) {
             pipeline_->stop();   // no sources left -> release the pipeline
             pipeline_.reset();
+        } else {
+            pipeline_->removeSource(camera_id);
         }
     }
     Logger::get()->info("Camera {} stopped ({} active)", camera_id,
@@ -94,18 +101,16 @@ std::size_t PipelineManager::runningCount() const {
     return active_cameras_.size();
 }
 
-void PipelineManager::onDetections(
-    const std::vector<model::Detection>& detections) {
-    std::vector<model::Detection> filtered = processor_.process(detections);
-    if (filtered.empty()) {
-        return;
-    }
+void PipelineManager::onFrame(model::Frame frame) {
+    frame.detections = processor_.process(frame.detections);  // filter in place
     if (sink_) {
-        sink_(filtered);  // forward to the stream service (or any observer)
+        sink_(std::move(frame));   // move frame (incl. jpeg) onward — no copy
     } else {
-        Logger::get()->debug("Processed {} detection(s) from {} raw (no sink)",
-                             filtered.size(), detections.size());
+        Logger::get()->debug("Processed {} detection(s) (no sink)",
+                             frame.detections.size());
     }
 }
+
+
 
 }  // namespace dsd

@@ -78,28 +78,38 @@ std::size_t FakePipeline::sourceCount() const {
     return sources_.size();
 }
 
-void FakePipeline::setDetectionCallback(DetectionCallback callback) {
+void FakePipeline::setFrameCallback(FrameCallback callback) {
     callback_ = std::move(callback);
 }
 
 void FakePipeline::run() {
     while (running_.load()) {
-        std::vector<model::Detection> batch;
+        std::vector<model::Frame> frames;
         {
-            // Snapshot the active sources under the lock, then release it
-            // before invoking the callback (never hold a lock across a callback).
+            // Snapshot active sources, then build one frame per source.
             std::lock_guard<std::mutex> lock(sources_mutex_);
-            batch.reserve(sources_.size());
+            frames.reserve(sources_.size());
             for (const auto& [camera_id, rtsp_url] : sources_) {
                 (void)rtsp_url;
-                batch.push_back(makeDetection(camera_id));
+                model::Frame frame;
+                frame.camera_id = camera_id;
+                frame.timestamp_ms = nowMs();
+                frame.width = 1920;
+                frame.height = 1080;
+                frame.detections.push_back(makeDetection(camera_id));
+                // jpeg stays empty on the host (no encode without DeepStream)
+                frames.push_back(std::move(frame));
             }
         }
-        if (callback_ && !batch.empty()) {
-            callback_(batch);
+        // Emit OUTSIDE the lock, one callback per source-frame.
+        if (callback_) {
+            for (const model::Frame& f : frames) {
+                callback_(std::move(f));
+            }
         }
         std::this_thread::sleep_for(kEmitInterval);
     }
 }
+
 
 }  // namespace dsd

@@ -9,6 +9,8 @@
 #include <functional>
 
 #include "CameraModel.hpp"
+#include "pipeline/Frame.hpp"
+#include "pipeline/Frame.hpp"
 #include "pipeline/Detection.hpp"
 #include "pipeline/DetectionProcessor.hpp"
 #include "pipeline/Pipeline.hpp"
@@ -35,11 +37,10 @@ public:
     // Removes the camera source; stops the pipeline once the last source goes.
     void stop(std::int64_t camera_id);
 
-    // Sink for filtered detections (e.g. the gRPC stream service). Set before
+    // Sink for processed frames (e.g. the gRPC stream service). Set before
     // start(); invoked on a pipeline worker thread, so it must be thread-safe.
-    using DetectionSink =
-        std::function<void(const std::vector<model::Detection>&)>;
-    void setDetectionSink(DetectionSink sink);
+    using FrameSink = std::function<void(model::Frame)>;
+    void setFrameSink(FrameSink sink);
 
     // Removes all sources and stops the pipeline.
     void stopAll();
@@ -48,13 +49,13 @@ public:
     std::size_t runningCount() const;              // number of active sources
 
 private:
-    // Runs on the pipeline's worker thread: filter + log a detection batch.
-    void onDetections(const std::vector<model::Detection>& detections);
+    // Runs on a pipeline's worker thread: filter the frame's detections + sink it.
+    void onFrame(model::Frame frame);
 
     PipelineFactory factory_;
     
     DetectionProcessor processor_;
-    DetectionSink sink_;
+    FrameSink sink_;
 
     mutable std::mutex mutex_;
     std::unordered_set<std::int64_t> active_cameras_;

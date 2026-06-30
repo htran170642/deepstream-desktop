@@ -28,12 +28,12 @@ public:
     void removeSource(std::int64_t camera_id) override;
     std::size_t sourceCount() const override;
 
-    void setDetectionCallback(DetectionCallback callback) override;
+    void setFrameCallback(FrameCallback callback) override;
 
 private:
     void run();  // worker loop: emit one detection per active source per tick
 
-    DetectionCallback callback_;
+    FrameCallback callback_;
     std::atomic<bool> running_{false};
     std::thread worker_;
 

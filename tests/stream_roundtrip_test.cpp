@@ -16,6 +16,7 @@
 #include "pipeline/Detection.hpp"
 #include "pipeline/FakePipeline.hpp"
 #include "pipeline/PipelineManager.hpp"
+#include "pipeline/Frame.hpp"
 
 namespace {
 
@@ -34,9 +35,9 @@ TEST(StreamRoundtrip, StartSubscribeReceivesDetections) {
 
     dsd::PipelineManager pipelines(fakeFactory());
     dsd::StreamServiceImpl stream_service(cameras, pipelines);
-    pipelines.setDetectionSink(
-        [&stream_service](const std::vector<dsd::model::Detection>& d) {
-            stream_service.broadcast(d);
+    pipelines.setFrameSink(
+        [&stream_service](dsd::model::Frame f) {
+            stream_service.broadcast(std::move(f));
         });
 
     dsd::GrpcServer server("localhost:0");
@@ -52,9 +53,9 @@ TEST(StreamRoundtrip, StartSubscribeReceivesDetections) {
     std::condition_variable cv;
     int frames = 0;
     dsd::FrameUpdate last;
-    client.subscribe(id, [&](const dsd::FrameUpdate& f) {
+    client.subscribe(id, [&](std::shared_ptr<const dsd::FrameUpdate> f) {
         std::lock_guard<std::mutex> lock(m);
-        last = f;
+        last = *f;
         ++frames;
         cv.notify_one();
     });

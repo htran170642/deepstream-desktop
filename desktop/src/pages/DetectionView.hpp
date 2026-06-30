@@ -1,28 +1,29 @@
 #pragma once
 
+#include <memory>
+
 #include <QWidget>
 
 #include "client/StreamClient.hpp"  // FrameUpdate
 
 namespace dsd {
 
-// Paints detection bounding boxes + labels over the view area. In 6a there is
-// no video, so boxes are drawn on a dark canvas; 6b will paint the decoded
-// frame first, then the boxes on top.
+// Paints the decoded video frame (if any) and detection boxes + labels.
 class DetectionView : public QWidget {
     Q_OBJECT
 
 public:
     explicit DetectionView(QWidget* parent = nullptr);
 
-    // Replace the displayed frame and repaint. Must be called on the UI thread.
-    void setFrame(const FrameUpdate& frame);
+    // Replace the displayed frame and repaint. nullptr clears the view.
+    // Must be called on the UI thread.
+    void setFrame(std::shared_ptr<const FrameUpdate> frame);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
-    FrameUpdate frame_;
+    std::shared_ptr<const FrameUpdate> frame_;
 };
 
 }  // namespace dsd

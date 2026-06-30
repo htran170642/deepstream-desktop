@@ -84,7 +84,14 @@ if(ENABLE_DEEPSTREAM)
     PkgConfig::GST
     nvdsgst_meta
     nvds_meta
+    nvds_batch_jpegenc
+    cuda
   )
+  # libnvbufsurface references CUDA driver symbols (cuCtxGetCurrent, ...) that
+  # are provided at runtime by the injected NVIDIA driver. Allow them to be
+  # undefined at build time (no GPU during docker build).
+  target_link_options(service PRIVATE -Wl,--allow-shlib-undefined)
+
 
   # main.cpp uses DSD_WITH_DEEPSTREAM for the bind address + startup log.
   target_compile_definitions(service PRIVATE DSD_WITH_DEEPSTREAM=1)

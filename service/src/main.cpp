@@ -41,9 +41,9 @@ int main() {
 
         // Filtered detections flow from the pipeline into the stream service,
         // which fans them out to subscribed Live View clients.
-        pipeline_manager.setDetectionSink(
-            [&stream_service](const std::vector<dsd::model::Detection>& dets) {
-                stream_service.broadcast(dets);
+        pipeline_manager.setFrameSink(
+            [&stream_service](dsd::model::Frame frame) {
+                stream_service.broadcast(std::move(frame));
             });
 
         dsd::GrpcServer server(kServerAddress);
