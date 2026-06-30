@@ -15,6 +15,13 @@ PipelineManager::~PipelineManager() {
     stopAll();
 }
 
+void PipelineManager::setDetectionSink(DetectionSink sink) {
+    // Contract: call before start(). sink_ is read on the pipeline worker
+    // thread (onDetections) without a lock, so it must not change while running.
+    sink_ = std::move(sink);
+}
+
+
 bool PipelineManager::start(const model::Camera& camera) {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -89,9 +96,14 @@ std::size_t PipelineManager::runningCount() const {
 
 void PipelineManager::onDetections(
     const std::vector<model::Detection>& detections) {
-    const std::vector<model::Detection> filtered = processor_.process(detections);
-    if (!filtered.empty()) {
-        Logger::get()->debug("Processed {} detection(s) from {} raw",
+    std::vector<model::Detection> filtered = processor_.process(detections);
+    if (filtered.empty()) {
+        return;
+    }
+    if (sink_) {
+        sink_(filtered);  // forward to the stream service (or any observer)
+    } else {
+        Logger::get()->debug("Processed {} detection(s) from {} raw (no sink)",
                              filtered.size(), detections.size());
     }
 }

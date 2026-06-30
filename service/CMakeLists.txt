@@ -12,6 +12,10 @@ add_library(service_lib STATIC
   src/CameraManager.hpp
   src/CameraServiceImpl.cpp
   src/CameraServiceImpl.hpp
+  src/CameraServiceImpl.cpp
+  src/CameraServiceImpl.hpp
+  src/StreamServiceImpl.cpp
+  src/StreamServiceImpl.hpp
   src/pipeline/Detection.hpp
   src/pipeline/Pipeline.hpp
   src/pipeline/DetectionProcessor.cpp

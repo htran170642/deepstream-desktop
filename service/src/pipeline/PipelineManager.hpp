@@ -6,6 +6,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <vector>
+#include <functional>
 
 #include "CameraModel.hpp"
 #include "pipeline/Detection.hpp"
@@ -34,6 +35,12 @@ public:
     // Removes the camera source; stops the pipeline once the last source goes.
     void stop(std::int64_t camera_id);
 
+    // Sink for filtered detections (e.g. the gRPC stream service). Set before
+    // start(); invoked on a pipeline worker thread, so it must be thread-safe.
+    using DetectionSink =
+        std::function<void(const std::vector<model::Detection>&)>;
+    void setDetectionSink(DetectionSink sink);
+
     // Removes all sources and stops the pipeline.
     void stopAll();
 
@@ -45,7 +52,10 @@ private:
     void onDetections(const std::vector<model::Detection>& detections);
 
     PipelineFactory factory_;
+    
     DetectionProcessor processor_;
+    DetectionSink sink_;
+
     mutable std::mutex mutex_;
     std::unordered_set<std::int64_t> active_cameras_;
     // Declared last so it is destroyed first: the pipeline joins its worker

@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package dsd;
+
+// Live View streaming: start/stop a camera's pipeline and subscribe to its
+// detection stream. Encoded video frames are added in Stage 6b; the message is
+// codec-agnostic so JPEG -> H264 later is a non-breaking enum add.
+service StreamService {
+  rpc StartCamera(CameraStreamRequest) returns (CameraStreamResponse);
+  rpc StopCamera(CameraStreamRequest) returns (CameraStreamResponse);
+
+  // Server-streaming: one DetectionFrame per processed video frame until the
+  // client cancels.
+  rpc StreamDetections(CameraStreamRequest) returns (stream DetectionFrame);
+}
+
+message CameraStreamRequest {
+  int64 camera_id = 1;
+}
+
+message CameraStreamResponse {
+  bool running = 1;  // is the camera's pipeline running after the call
+}
+
+// One detected object, decoupled from the internal model::Detection.
+message Detection {
+  int32 class_id = 1;
+  string label = 2;
+  float confidence = 3;
+  // Normalized bounding box — all values in [0, 1] relative to the frame.
+  float x = 4;
+  float y = 5;
+  float width = 6;
+  float height = 7;
+  int64 track_id = 8;  // -1 if untracked
+}
+
+// How to decode DetectionFrame.frame.
+enum FrameCodec {
+  FRAME_CODEC_NONE = 0;  // 6a: no video, detections only
+  FRAME_CODEC_JPEG = 1;  // 6b
+  FRAME_CODEC_H264 = 2;  // future upgrade
+}
+
+// Everything the desktop needs to render one frame of Live View.
+message DetectionFrame {
+  int64 camera_id = 1;
+  int64 timestamp_ms = 2;
+  repeated Detection detections = 3;
+  int32 frame_width = 4;
+  int32 frame_height = 5;
+  bytes frame = 6;        // encoded bytes (empty in 6a)
+  FrameCodec codec = 7;   // how to decode `frame`
+}
