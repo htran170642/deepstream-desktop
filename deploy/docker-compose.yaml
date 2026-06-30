@@ -1,0 +1,29 @@
+services:
+  service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: deepstream-service:latest
+    # GPU access via nvidia-container-toolkit.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - DSD_NVINFER_CONFIG=/configs/config_infer_primary.txt
+    ports:
+      - "50051:50051"
+    # cwd for the service (deepstream.db is written here); kept off /workspace
+    # so the volume does not shadow the built binary.
+    working_dir: /data
+    volumes:
+      - ../configs:/configs:ro          # config_infer_primary.txt
+      - engine-cache:/engine-cache      # built TensorRT engine, reused across runs
+      - service-db:/data                # SQLite camera DB persistence
+
+volumes:
+  engine-cache:
+  service-db:

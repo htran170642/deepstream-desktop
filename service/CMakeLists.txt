@@ -33,7 +33,8 @@ target_link_libraries(service_lib PUBLIC Threads::Threads)
 # SQLite is an implementation detail of the repository (no sqlite types in
 # public headers), so link it PRIVATE.
 find_package(SQLite3 REQUIRED)
-target_link_libraries(service_lib PRIVATE SQLite3::SQLite3)
+target_include_directories(service_lib PRIVATE ${SQLite3_INCLUDE_DIRS})
+target_link_libraries(service_lib PRIVATE ${SQLite3_LIBRARIES})
 
 # Thin executable: just the entry point, linking the service library.
 add_executable(service
@@ -51,6 +52,37 @@ if(ENABLE_DEEPSTREAM)
   target_include_directories(service PRIVATE ${DEEPSTREAM_ROOT}/sources/includes)
   target_link_directories(service PRIVATE ${DEEPSTREAM_ROOT}/lib)
   target_link_libraries(service PRIVATE nvdsgst_meta nvds_meta)
+  target_compile_definitions(service PRIVATE DSD_WITH_DEEPSTREAM=1)
+else()
+  message(STATUS "DeepStream disabled (ENABLE_DEEPSTREAM=OFF) — host build")
+endif()
+
+# DeepStream is optional on the host. Enabled inside the Docker container
+# (NVIDIA DeepStream base image), where the SDK lives at the path below.
+if(ENABLE_DEEPSTREAM)
+  set(DEEPSTREAM_ROOT "/opt/nvidia/deepstream/deepstream"
+      CACHE PATH "DeepStream SDK root")
+  message(STATUS "DeepStream ENABLED, SDK at ${DEEPSTREAM_ROOT}")
+
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0)
+
+  # Compile the real pipeline into service_lib and enable the factory branch.
+  target_sources(service_lib PRIVATE
+    src/pipeline/DeepStreamPipeline.cpp
+    src/pipeline/DeepStreamPipeline.hpp
+  )
+  target_compile_definitions(service_lib PRIVATE DSD_WITH_DEEPSTREAM=1)
+  target_include_directories(service_lib PRIVATE
+    ${DEEPSTREAM_ROOT}/sources/includes)
+  target_link_directories(service_lib PUBLIC ${DEEPSTREAM_ROOT}/lib)
+  target_link_libraries(service_lib PUBLIC
+    PkgConfig::GST
+    nvdsgst_meta
+    nvds_meta
+  )
+
+  # main.cpp uses DSD_WITH_DEEPSTREAM for the bind address + startup log.
   target_compile_definitions(service PRIVATE DSD_WITH_DEEPSTREAM=1)
 else()
   message(STATUS "DeepStream disabled (ENABLE_DEEPSTREAM=OFF) — host build")

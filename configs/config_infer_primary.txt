@@ -1,0 +1,28 @@
+# nvinfer config for the DeepStream sample primary detector (TrafficCamNet,
+# resnet18). Detects 4 classes: car, bicycle, person, road_sign.
+# The model files ship inside the DeepStream container; paths are absolute so
+# this config works regardless of where it is mounted in the service.
+
+[property]
+gpu-id=0
+net-scale-factor=0.00392156862745098
+onnx-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet18_trafficcamnet_pruned.onnx
+labelfile-path=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/labels.txt
+int8-calib-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/cal_trt.bin
+# Cached in a mounted volume so the TensorRT engine is built once, not every run.
+model-engine-file=/engine-cache/trafficcamnet_b4_gpu0_fp16.engine
+batch-size=4
+process-mode=1
+model-color-format=0
+## network-mode: 0=FP32, 1=INT8, 2=FP16
+network-mode=2
+num-detected-classes=4
+interval=0
+gie-unique-id=1
+## cluster-mode: 1=DBSCAN, 2=NMS, 3=Hybrid, 4=None
+cluster-mode=2
+
+[class-attrs-all]
+topk=20
+nms-iou-threshold=0.5
+pre-cluster-threshold=0.2
