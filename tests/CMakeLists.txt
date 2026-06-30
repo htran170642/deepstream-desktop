@@ -77,3 +77,16 @@ target_link_libraries(pipeline_manager_test PRIVATE
   GTest::gtest_main
 )
 gtest_discover_tests(pipeline_manager_test)
+
+# Stream round-trip test — full StreamClient -> gRPC -> StreamService -> pipeline.
+add_executable(stream_roundtrip_test
+  stream_roundtrip_test.cpp
+)
+target_link_libraries(stream_roundtrip_test PRIVATE
+  service_lib
+  desktop_client_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(stream_roundtrip_test)
+

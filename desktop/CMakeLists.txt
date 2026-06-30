@@ -10,6 +10,8 @@ add_library(desktop_client_lib STATIC
   src/client/HealthClient.hpp
   src/client/CameraClient.cpp
   src/client/CameraClient.hpp
+  src/client/StreamClient.cpp
+  src/client/StreamClient.hpp
 )
 target_include_directories(desktop_client_lib PUBLIC src)
 target_link_libraries(desktop_client_lib PUBLIC dsd_proto dsd_logging)
@@ -28,6 +30,8 @@ add_library(desktop_lib STATIC
   src/pages/CameraDialog.hpp
   src/pages/LiveViewPage.cpp
   src/pages/LiveViewPage.hpp
+  src/pages/DetectionView.cpp
+  src/pages/DetectionView.hpp
   src/pages/AlertPage.cpp
   src/pages/AlertPage.hpp
   src/pages/SettingsPage.cpp
