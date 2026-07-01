@@ -111,6 +111,4 @@ void PipelineManager::onFrame(model::Frame frame) {
     }
 }
 
-
-
 }  // namespace dsd

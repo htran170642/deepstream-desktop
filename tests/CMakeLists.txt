@@ -90,3 +90,36 @@ target_link_libraries(stream_roundtrip_test PRIVATE
 )
 gtest_discover_tests(stream_roundtrip_test)
 
+# Alert repository test — SQLite alerts CRUD + filter + snapshot BLOB.
+add_executable(alert_repository_test
+  alert_repository_test.cpp
+)
+target_link_libraries(alert_repository_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(alert_repository_test)
+
+# AlertManager unit test — rule (target/threshold) + cooldown + snapshot copy.
+add_executable(alert_manager_test
+  alert_manager_test.cpp
+)
+target_link_libraries(alert_manager_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(alert_manager_test)
+
+
+# Alert round-trip test — onFrame -> AlertService -> ListAlerts/GetSnapshot/StreamAlerts.
+add_executable(alert_roundtrip_test
+  alert_roundtrip_test.cpp
+)
+target_link_libraries(alert_roundtrip_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(alert_roundtrip_test)

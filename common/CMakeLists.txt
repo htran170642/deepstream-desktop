@@ -24,7 +24,7 @@ set(PROTO_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${PROTO_GEN_DIR})
 
 # Add the stem of each new .proto file here.
-set(PROTO_NAMES health camera stream)
+set(PROTO_NAMES health camera stream alert)
 
 set(PROTO_GEN_SRCS "")
 foreach(name ${PROTO_NAMES})

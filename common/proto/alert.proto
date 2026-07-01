@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package dsd;
+
+// Alert history: query past alerts (with search/filter), fetch a snapshot on
+// demand, and subscribe to new alerts as they fire. Snapshots are stored as
+// JPEG in SQLite and fetched separately so ListAlerts/StreamAlerts stay light.
+service AlertService {
+  // History with optional filters (camera, label, time range, limit).
+  rpc ListAlerts(AlertFilter) returns (AlertList);
+
+  // The JPEG snapshot for one alert (empty if the alert has none).
+  rpc GetSnapshot(SnapshotRequest) returns (Snapshot);
+
+  // Server-streaming: one Alert per new alert (all cameras) until cancel.
+  rpc StreamAlerts(AlertStreamRequest) returns (stream Alert);
+}
+
+// One alert, decoupled from the internal model::Alert. Carries metadata only;
+// the snapshot image is fetched via GetSnapshot.
+message Alert {
+  int64 id = 1;
+  int64 camera_id = 2;
+  string label = 3;         // triggering class, e.g. "person"
+  float confidence = 4;     // detection score in [0, 1]
+  int64 timestamp_ms = 5;   // when the alert fired
+  bool has_snapshot = 6;    // true if GetSnapshot will return an image
+}
+
+message AlertList {
+  repeated Alert alerts = 1;
+}
+
+// All fields optional: 0 / empty means "unset" (no constraint on that field).
+message AlertFilter {
+  int64 camera_id = 1;   // 0 = any camera
+  string label = 2;      // "" = any label (substring match)
+  int64 from_ms = 3;     // 0 = no lower bound
+  int64 to_ms = 4;       // 0 = no upper bound
+  int32 limit = 5;       // 0 = server default
+}
+
+message AlertStreamRequest {}
+
+message SnapshotRequest {
+  int64 alert_id = 1;
+}
+
+message Snapshot {
+  bytes jpeg = 1;  // empty if the alert has no snapshot
+}

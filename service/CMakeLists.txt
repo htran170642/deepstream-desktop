@@ -16,7 +16,14 @@ add_library(service_lib STATIC
   src/CameraServiceImpl.hpp
   src/StreamServiceImpl.cpp
   src/StreamServiceImpl.hpp
+  src/AlertRepository.cpp
+  src/AlertRepository.hpp
+  src/AlertManager.cpp
+  src/AlertManager.hpp
+  src/AlertServiceImpl.cpp
+  src/AlertServiceImpl.hpp
   src/pipeline/Detection.hpp
+  src/pipeline/Alert.hpp
   src/pipeline/Pipeline.hpp
   src/pipeline/DetectionProcessor.cpp
   src/pipeline/DetectionProcessor.hpp
