@@ -102,6 +102,7 @@ std::size_t PipelineManager::runningCount() const {
 }
 
 void PipelineManager::onFrame(model::Frame frame) {
+    frames_processed_.fetch_add(1, std::memory_order_relaxed);
     frame.detections = processor_.process(frame.detections);  // filter in place
     if (sink_) {
         sink_(std::move(frame));   // move frame (incl. jpeg) onward — no copy
@@ -109,6 +110,10 @@ void PipelineManager::onFrame(model::Frame frame) {
         Logger::get()->debug("Processed {} detection(s) (no sink)",
                              frame.detections.size());
     }
+}
+
+std::uint64_t PipelineManager::framesProcessed() const {
+    return frames_processed_.load(std::memory_order_relaxed);
 }
 
 }  // namespace dsd

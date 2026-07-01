@@ -24,6 +24,10 @@ add_library(service_lib STATIC
   src/AlertServiceImpl.hpp
   src/NotificationServiceImpl.cpp
   src/NotificationServiceImpl.hpp
+  src/SystemServiceImpl.cpp
+  src/SystemServiceImpl.hpp
+  src/system/SystemMonitor.cpp
+  src/system/SystemMonitor.hpp
   src/notify/NotificationChannel.hpp
   src/notify/Payloads.cpp
   src/notify/Payloads.hpp
@@ -72,6 +76,20 @@ if(CURL_FOUND)
   message(STATUS "libcurl found — notification channels ENABLED")
 else()
   message(STATUS "libcurl not found — notifications DISABLED (host build)")
+endif()
+
+# GPU dashboard metrics via NVML are optional (container/GPU only), like
+# DeepStream/CURL. When libnvidia-ml + nvml.h are present, define DSD_WITH_NVML;
+# otherwise SystemMonitor reports gpu_available=false and the service still runs.
+find_library(NVML_LIBRARY nvidia-ml)
+find_path(NVML_INCLUDE_DIR nvml.h PATH_SUFFIXES cuda)
+if(NVML_LIBRARY AND NVML_INCLUDE_DIR)
+  target_compile_definitions(service_lib PRIVATE DSD_WITH_NVML=1)
+  target_include_directories(service_lib PRIVATE ${NVML_INCLUDE_DIR})
+  target_link_libraries(service_lib PRIVATE ${NVML_LIBRARY})
+  message(STATUS "NVML found — GPU dashboard metrics ENABLED")
+else()
+  message(STATUS "NVML not found — GPU metrics disabled (host build)")
 endif()
 
 # SQLite is an implementation detail of the repository (no sqlite types in

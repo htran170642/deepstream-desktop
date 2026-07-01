@@ -11,6 +11,8 @@
 #include "notify/NotificationManager.hpp"
 #include "notify/ChannelFactory.hpp"
 #include "NotificationServiceImpl.hpp"
+#include "SystemServiceImpl.hpp"
+#include "system/SystemMonitor.hpp"
 
 namespace {
 #ifdef DSD_WITH_DEEPSTREAM
@@ -64,6 +66,12 @@ int main() {
         dsd::PipelineManager pipeline_manager;
         dsd::StreamServiceImpl stream_service(camera_manager, pipeline_manager);
 
+        // Dashboard: reads CPU/mem (monitor) + camera/pipeline status. References
+        // camera_manager + pipeline_manager, so declared after both.
+        dsd::SystemMonitor system_monitor;
+        dsd::SystemServiceImpl system_service(system_monitor, camera_manager,
+                                              pipeline_manager);
+
         // New alerts fan out to two consumers: the gRPC live stream and the
         // notification channels. shared_ptr is cheap to copy; hand a copy to
         // the stream and move the last reference into notifications.
@@ -91,7 +99,7 @@ int main() {
         server.registerService(&stream_service);
         server.registerService(&alert_service);
         server.registerService(&notification_service);
-
+        server.registerService(&system_service);
         if (server.start() == 0) {
             log->error("Service failed to start; exiting");
             return 1;

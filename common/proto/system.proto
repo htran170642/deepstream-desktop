@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package dsd;
+
+// System dashboard: one snapshot of host/GPU usage plus camera and pipeline
+// status. The desktop polls GetStats on a timer (dashboards are periodic, so a
+// unary call is simpler than a stream). GPU fields are zeroed with
+// gpu_available=false on a host without a GPU/NVML.
+service SystemService {
+  rpc GetStats(SystemStatsRequest) returns (SystemStats);
+}
+
+message SystemStatsRequest {}
+
+message CameraStatus {
+  int64 id = 1;
+  string name = 2;
+  bool enabled = 3;   // configured to run (from the camera record)
+  bool running = 4;   // currently an active pipeline source
+}
+
+message SystemStats {
+  // Host CPU + memory (always available).
+  double cpu_percent = 1;          // 0..100 across all cores
+  int64 mem_used_bytes = 2;
+  int64 mem_total_bytes = 3;
+
+  // GPU (NVML, container/GPU only). gpu_available=false => the rest are 0.
+  bool gpu_available = 4;
+  double gpu_percent = 5;          // 0..100
+  int64 gpu_mem_used_bytes = 6;
+  int64 gpu_mem_total_bytes = 7;
+
+  // Pipeline.
+  double fps = 8;                  // aggregate frames/sec across all sources
+  bool pipeline_running = 9;
+  int32 active_cameras = 10;
+
+  repeated CameraStatus cameras = 11;
+}

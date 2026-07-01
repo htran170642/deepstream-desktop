@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <vector>
 #include <functional>
+#include <atomic> 
 
 #include "CameraModel.hpp"
 #include "pipeline/Frame.hpp"
@@ -47,6 +48,8 @@ public:
 
     bool isRunning(std::int64_t camera_id) const;  // is this camera an active source?
     std::size_t runningCount() const;              // number of active sources
+    
+    std::uint64_t framesProcessed() const;  // cumulative frames through the sink
 
 private:
     // Runs on a pipeline's worker thread: filter the frame's detections + sink it.
@@ -59,6 +62,8 @@ private:
 
     mutable std::mutex mutex_;
     std::unordered_set<std::int64_t> active_cameras_;
+    std::atomic<std::uint64_t> frames_processed_{0};
+
     // Declared last so it is destroyed first: the pipeline joins its worker
     // thread before processor_/factory_ are torn down (no callback UAF).
     std::unique_ptr<Pipeline> pipeline_;

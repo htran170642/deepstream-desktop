@@ -159,3 +159,27 @@ target_link_libraries(notification_roundtrip_test PRIVATE
 )
 gtest_discover_tests(notification_roundtrip_test)
 
+# SystemMonitor unit test — pure /proc parsers (no hardware).
+add_executable(system_monitor_test
+  system_monitor_test.cpp
+)
+target_link_libraries(system_monitor_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(system_monitor_test)
+
+# System round-trip — SystemClient -> gRPC -> SystemService (CPU/mem + cameras).
+add_executable(system_roundtrip_test
+  system_roundtrip_test.cpp
+)
+target_link_libraries(system_roundtrip_test PRIVATE
+  service_lib
+  desktop_client_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(system_roundtrip_test)
+
+
