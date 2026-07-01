@@ -10,6 +10,7 @@
 #include "pipeline/PipelineManager.hpp"
 #include "notify/NotificationManager.hpp"
 #include "notify/ChannelFactory.hpp"
+#include "NotificationServiceImpl.hpp"
 
 namespace {
 #ifdef DSD_WITH_DEEPSTREAM
@@ -51,6 +52,9 @@ int main() {
         // in 8a; the env-configured libcurl channels are added in 8b.
         dsd::NotificationManager notification_manager(
             dsd::buildNotificationChannels());
+        // Read-only status + manual "send test" for the desktop Settings page.
+        // References notification_manager, so declared after it (destroyed first).
+        dsd::NotificationServiceImpl notification_service(notification_manager);
 
         dsd::AlertManager alert_manager(alert_repo);          // default rule config
 
@@ -86,6 +90,7 @@ int main() {
         server.registerService(&camera_service);
         server.registerService(&stream_service);
         server.registerService(&alert_service);
+        server.registerService(&notification_service);
 
         if (server.start() == 0) {
             log->error("Service failed to start; exiting");

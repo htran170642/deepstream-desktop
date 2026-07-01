@@ -2,6 +2,7 @@
 
 #include <exception>
 #include <utility>
+#include <chrono>
 
 #include "logging/Logger.hpp"
 #include "pipeline/Alert.hpp"
@@ -102,5 +103,41 @@ void NotificationManager::flush() {
     // if pending == 0 true then return else lock and wait for idle_cv_ to be notified
     idle_cv_.wait(lock, [&] { return pending_ == 0; });
 }
+
+std::vector<NotificationManager::ChannelStatus>
+NotificationManager::channels() const {
+    std::vector<ChannelStatus> out;
+    out.reserve(channels_.size());
+    for (const auto& ch : channels_) {
+        out.push_back({ch->name(), ch->enabled()});
+    }
+    return out;
+}
+
+std::vector<NotificationManager::DeliveryResult>
+NotificationManager::sendTest() {
+    model::Alert alert;
+    alert.camera_id = 0;
+    alert.label = "test";
+    alert.confidence = 1.0f;
+    alert.timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count();
+
+    std::vector<DeliveryResult> results;
+    for (const auto& ch : channels_) {
+        if (!ch->enabled()) continue;
+        bool ok = false;
+        try {
+            ok = ch->send(alert);
+        } catch (const std::exception& e) {
+            Logger::get()->warn("Test notification via {} threw: {}",
+                                ch->name(), e.what());
+        }
+        results.push_back({ch->name(), ok});
+    }
+    return results;
+}
+
 
 }  // namespace dsd

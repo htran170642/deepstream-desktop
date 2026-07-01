@@ -22,6 +22,8 @@ add_library(service_lib STATIC
   src/AlertManager.hpp
   src/AlertServiceImpl.cpp
   src/AlertServiceImpl.hpp
+  src/NotificationServiceImpl.cpp
+  src/NotificationServiceImpl.hpp
   src/notify/NotificationChannel.hpp
   src/notify/Payloads.cpp
   src/notify/Payloads.hpp

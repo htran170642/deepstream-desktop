@@ -36,6 +36,29 @@ public:
     // Block until every enqueued alert has been dispatched. Tests + shutdown.
     void flush();
 
+    // Read-only status of one channel, for the desktop Settings view.
+    struct ChannelStatus {
+        std::string name;
+        bool enabled;
+    };
+
+    // Result of a synchronous test send to one channel.
+    struct DeliveryResult {
+        std::string name;
+        bool ok;
+    };
+
+    // Name + enabled state for every channel. Independent of the worker/queue
+    // (channels_ is immutable after construction), so it's safe to call any time.
+    std::vector<ChannelStatus> channels() const;
+
+    // Synchronously send a synthetic test alert to every enabled channel and
+    // return the per-channel result. Runs on the CALLER's thread (a gRPC
+    // handler), not the worker — the manual Settings "test" button wants a real
+    // pass/fail, not fire-and-forget. Safe alongside the worker: each channel's
+    // send() is re-entrant (own curl handle, immutable config).
+    std::vector<DeliveryResult> sendTest();
+
 private:
     // Worker loop: dispatch queued alerts to channels until stopped and drained.
     void run();

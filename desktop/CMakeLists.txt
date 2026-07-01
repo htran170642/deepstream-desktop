@@ -14,6 +14,9 @@ add_library(desktop_client_lib STATIC
   src/client/StreamClient.hpp
   src/client/AlertClient.cpp
   src/client/AlertClient.hpp
+  src/client/NotificationClient.cpp
+  src/client/NotificationClient.hpp
+
 )
 target_include_directories(desktop_client_lib PUBLIC src)
 target_link_libraries(desktop_client_lib PUBLIC dsd_proto dsd_logging)

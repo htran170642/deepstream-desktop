@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package dsd;
+
+// Read-only view of the notification channels plus a manual test trigger, for
+// the desktop Settings page. Channel config (webhook URLs, SMTP creds) lives
+// server-side in environment variables and is never exposed here — the desktop
+// only sees each channel's name, whether it is enabled, and test results.
+service NotificationService {
+  // List the configured channels and whether each is enabled (has config).
+  rpc GetStatus(NotificationStatusRequest) returns (NotificationStatus);
+
+  // Send a synthetic test alert through the enabled channels and report a
+  // per-channel delivery result.
+  rpc SendTest(SendTestRequest) returns (SendTestResult);
+}
+
+message NotificationStatusRequest {}
+
+message ChannelStatus {
+  string name = 1;      // e.g. "slack"
+  bool enabled = 2;     // configured and active
+}
+
+message NotificationStatus {
+  repeated ChannelStatus channels = 1;
+}
+
+message SendTestRequest {}
+
+message ChannelDelivery {
+  string name = 1;
+  bool ok = 2;          // channel accepted the test message
+}
+
+message SendTestResult {
+  repeated ChannelDelivery results = 1;   // only the enabled channels
+}

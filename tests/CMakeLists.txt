@@ -145,3 +145,17 @@ target_link_libraries(payloads_test PRIVATE
   GTest::gtest_main
 )
 gtest_discover_tests(payloads_test)
+
+
+# Notification round-trip — NotificationClient -> gRPC -> NotificationService.
+add_executable(notification_roundtrip_test
+  notification_roundtrip_test.cpp
+)
+target_link_libraries(notification_roundtrip_test PRIVATE
+  service_lib
+  desktop_client_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(notification_roundtrip_test)
+
