@@ -440,7 +440,7 @@ void DeepStreamPipeline::handleBatchMeta(GstBuffer* buffer) {
         }
 
         if (callback_) {
-            callback_(std::nove(frame));  // one frame per source
+            callback_(std::move(frame));  // one frame per source
         }
     }
 
