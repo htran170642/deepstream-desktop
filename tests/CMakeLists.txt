@@ -123,3 +123,25 @@ target_link_libraries(alert_roundtrip_test PRIVATE
   GTest::gtest_main
 )
 gtest_discover_tests(alert_roundtrip_test)
+
+# NotificationManager unit test — fan-out, disabled-skip, failure isolation, flush.
+add_executable(notification_manager_test
+  notification_manager_test.cpp
+)
+target_link_libraries(notification_manager_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(notification_manager_test)
+
+# Payloads unit test — pure JSON/message builders + escaping.
+add_executable(payloads_test
+  payloads_test.cpp
+)
+target_link_libraries(payloads_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(payloads_test)

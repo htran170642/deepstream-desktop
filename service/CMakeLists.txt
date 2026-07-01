@@ -22,6 +22,13 @@ add_library(service_lib STATIC
   src/AlertManager.hpp
   src/AlertServiceImpl.cpp
   src/AlertServiceImpl.hpp
+  src/notify/NotificationChannel.hpp
+  src/notify/Payloads.cpp
+  src/notify/Payloads.hpp
+  src/notify/NotificationManager.cpp
+  src/notify/NotificationManager.hpp
+  src/notify/ChannelFactory.cpp
+  src/notify/ChannelFactory.hpp
   src/pipeline/Detection.hpp
   src/pipeline/Alert.hpp
   src/pipeline/Pipeline.hpp
@@ -40,6 +47,30 @@ target_link_libraries(service_lib PUBLIC dsd_proto dsd_logging)
 # std::thread (FakePipeline / PipelineManager) needs the threads library.
 find_package(Threads REQUIRED)
 target_link_libraries(service_lib PUBLIC Threads::Threads)
+
+# Notification transport (HTTP/SMTP) is optional, like DeepStream. When libcurl
+# is present, compile the real channels and define DSD_WITH_CURL; otherwise
+# ChannelFactory returns an empty list and the service runs without them.
+find_package(CURL)
+if(CURL_FOUND)
+  target_sources(service_lib PRIVATE
+    src/notify/Http.cpp
+    src/notify/Http.hpp
+    src/notify/SlackChannel.cpp
+    src/notify/SlackChannel.hpp
+    src/notify/WebhookChannel.cpp
+    src/notify/WebhookChannel.hpp
+    src/notify/TelegramChannel.cpp
+    src/notify/TelegramChannel.hpp
+    src/notify/EmailChannel.cpp
+    src/notify/EmailChannel.hpp
+  )
+  target_compile_definitions(service_lib PRIVATE DSD_WITH_CURL=1)
+  target_link_libraries(service_lib PRIVATE CURL::libcurl)
+  message(STATUS "libcurl found — notification channels ENABLED")
+else()
+  message(STATUS "libcurl not found — notifications DISABLED (host build)")
+endif()
 
 # SQLite is an implementation detail of the repository (no sqlite types in
 # public headers), so link it PRIVATE.

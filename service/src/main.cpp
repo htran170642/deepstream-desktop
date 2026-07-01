@@ -8,6 +8,8 @@
 #include "StreamServiceImpl.hpp"
 #include "logging/Logger.hpp"
 #include "pipeline/PipelineManager.hpp"
+#include "notify/NotificationManager.hpp"
+#include "notify/ChannelFactory.hpp"
 
 namespace {
 #ifdef DSD_WITH_DEEPSTREAM
@@ -42,6 +44,14 @@ int main() {
         // (-> alert_service), so alert_service must still be alive at that point.
         dsd::AlertRepository alert_repo(kDatabasePath);
         dsd::AlertServiceImpl alert_service(alert_repo);
+        // NotificationManager is the second alert consumer (the first is the
+        // gRPC stream). Declared BEFORE alert_manager for the same reason as
+        // alert_service: ~AlertManager drains its worker, which calls the sink
+        // into both of these — so both must outlive it. Channel list is empty
+        // in 8a; the env-configured libcurl channels are added in 8b.
+        dsd::NotificationManager notification_manager(
+            dsd::buildNotificationChannels());
+
         dsd::AlertManager alert_manager(alert_repo);          // default rule config
 
         // pipeline_manager is declared before the sink consumers; we stop it
@@ -50,11 +60,16 @@ int main() {
         dsd::PipelineManager pipeline_manager;
         dsd::StreamServiceImpl stream_service(camera_manager, pipeline_manager);
 
-        // New alerts flow from the AlertManager to the AlertService stream.
+        // New alerts fan out to two consumers: the gRPC live stream and the
+        // notification channels. shared_ptr is cheap to copy; hand a copy to
+        // the stream and move the last reference into notifications.
         alert_manager.setAlertSink(
-            [&alert_service](std::shared_ptr<const dsd::model::Alert> alert) {
-                alert_service.broadcastAlert(std::move(alert));
+            [&alert_service, &notification_manager](
+                std::shared_ptr<const dsd::model::Alert> alert) {
+                alert_service.broadcastAlert(alert);
+                notification_manager.notify(std::move(alert));
             });
+
 
         // Each processed frame fans out to two consumers: the alert rule (reads
         // detections, copies the JPEG only when an alert fires) and the Live
