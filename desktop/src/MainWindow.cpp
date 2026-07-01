@@ -32,6 +32,7 @@ MainWindow::MainWindow(QWidget* parent) :
     layout->setSpacing(0);
 
     sidebar_ = new QListWidget(central);
+    sidebar_->setObjectName("sidebar");
     sidebar_->setFixedWidth(180);
     sidebar_->addItem("Dashboard");
     sidebar_->addItem("Cameras");

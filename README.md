@@ -12,6 +12,18 @@ See [CLAUDE.md](CLAUDE.md) for the full architecture and roadmap.
 
 ---
 
+## Features
+
+- **Cameras** — add / edit / delete / enable / disable RTSP cameras (SQLite-backed CRUD).
+- **Live View** — per-camera RTSP streaming with detection bounding boxes, labels, confidence, and FPS.
+- **Alerts** — history with search/filter, JPEG snapshots on demand, and a live alert stream.
+- **Notifications** — Email (SMTP), Slack, Telegram, and generic Webhook channels, configured via environment.
+- **Dashboard** — live CPU / memory / GPU usage, pipeline FPS, and per-camera status.
+
+All Desktop ↔ Service communication is over gRPC; the UI never touches DeepStream directly.
+
+---
+
 ## Dependencies
 
 | Dependency | Purpose | Ubuntu/Debian package |
@@ -96,6 +108,28 @@ export DSD_SMTP_HOST="smtp.example.com" DSD_SMTP_PORT="587" \
        DSD_SMTP_FROM="deepstream@example.com" DSD_SMTP_TO="ops@example.com"
 ./build/service/service
 ```
+
+---
+
+## Screenshots
+
+> Captured from the running desktop app (`build/desktop/desktop`). See
+> [docs/screenshots/](docs/screenshots/) for the shot list.
+
+| Dashboard | Live View |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Live View](docs/screenshots/live-view.png) |
+
+| Alerts | Settings |
+|---|---|
+| ![Alerts](docs/screenshots/alerts.png) | ![Settings](docs/screenshots/settings.png) |
+
+---
+
+## Study notes
+
+Per-phase technical interview Q&A (English + Vietnamese) covering the engineering
+concepts each phase exercised — see [docs/interview/](docs/interview/).
 
 ---
 
