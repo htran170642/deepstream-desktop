@@ -1,8 +1,6 @@
 #include "client/CameraClient.hpp"
 
-#include <grpcpp/client_context.h>
-#include <grpcpp/create_channel.h>
-
+#include "client/GrpcSupport.hpp"
 #include "logging/Logger.hpp"
 
 namespace dsd {
@@ -36,7 +34,7 @@ std::chrono::system_clock::time_point deadlineFrom(
 }  // namespace
 
 CameraClient::CameraClient(const std::string& address)
-    : channel_(grpc::CreateChannel(address, grpc::InsecureChannelCredentials())),
+    : channel_(makeChannel(address)),
       stub_(CameraService::NewStub(channel_)) {}
 
 std::optional<std::vector<CameraInfo>> CameraClient::list(

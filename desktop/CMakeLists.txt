@@ -6,6 +6,7 @@ set(CMAKE_AUTOMOC ON)
 # Qt-free gRPC clients. Separate library so the integration tests can link them
 # without pulling in Qt or needing a QApplication.
 add_library(desktop_client_lib STATIC
+  src/client/GrpcSupport.hpp
   src/client/HealthClient.cpp
   src/client/HealthClient.hpp
   src/client/CameraClient.cpp

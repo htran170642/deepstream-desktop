@@ -3,9 +3,7 @@
 #include <chrono>
 #include <utility>
 
-#include <grpcpp/client_context.h>
-#include <grpcpp/create_channel.h>
-
+#include "client/GrpcSupport.hpp"
 #include "logging/Logger.hpp"
 
 namespace dsd {
@@ -31,7 +29,7 @@ std::chrono::system_clock::time_point deadlineFrom(
 }  // namespace
 
 AlertClient::AlertClient(const std::string& address)
-    : channel_(grpc::CreateChannel(address, grpc::InsecureChannelCredentials())),
+    : channel_(makeChannel(address)),
       stub_(AlertService::NewStub(channel_)) {}
 
 AlertClient::~AlertClient() {

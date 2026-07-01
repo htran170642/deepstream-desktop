@@ -3,9 +3,7 @@
 #include <utility>
 #include <chrono>
 
-#include <grpcpp/client_context.h>
-#include <grpcpp/create_channel.h>
-
+#include "client/GrpcSupport.hpp"
 #include "logging/Logger.hpp"
 
 namespace dsd {
@@ -40,7 +38,7 @@ FrameUpdate fromProto(const DetectionFrame& f) {
 }  // namespace
 
 StreamClient::StreamClient(const std::string& address)
-    : channel_(grpc::CreateChannel(address, grpc::InsecureChannelCredentials())),
+    : channel_(makeChannel(address)),
       stub_(StreamService::NewStub(channel_)) {}
 
 StreamClient::~StreamClient() {

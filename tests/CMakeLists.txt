@@ -182,4 +182,13 @@ target_link_libraries(system_roundtrip_test PRIVATE
 )
 gtest_discover_tests(system_roundtrip_test)
 
-
+# CameraManager unit test — input validation + unknown-id handling.
+add_executable(camera_manager_test
+  camera_manager_test.cpp
+)
+target_link_libraries(camera_manager_test PRIVATE
+  service_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+gtest_discover_tests(camera_manager_test)

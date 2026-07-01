@@ -1,21 +1,12 @@
 #include "client/NotificationClient.hpp"
 
-#include <grpcpp/grpcpp.h>
-
+#include "client/GrpcSupport.hpp"
 #include "logging/Logger.hpp"
 
 namespace dsd {
-namespace {
-
-void setDeadline(grpc::ClientContext& ctx, std::chrono::milliseconds timeout) {
-    ctx.set_deadline(std::chrono::system_clock::now() + timeout);
-}
-
-}  // namespace
 
 NotificationClient::NotificationClient(const std::string& address)
-    : channel_(grpc::CreateChannel(address,
-                                   grpc::InsecureChannelCredentials())),
+    : channel_(makeChannel(address)),
       stub_(NotificationService::NewStub(channel_)) {}
 
 NotificationClient::~NotificationClient() = default;

@@ -1,18 +1,17 @@
 #include "client/HealthClient.hpp"
 
-#include <grpcpp/create_channel.h>
-
+#include "client/GrpcSupport.hpp"
 #include "logging/Logger.hpp"
 
 namespace dsd {
 
 HealthClient::HealthClient(const std::string& address)
-    : channel_(grpc::CreateChannel(address, grpc::InsecureChannelCredentials())),
+    : channel_(makeChannel(address)),
       stub_(Health::NewStub(channel_)) {}
 
 ServiceHealth HealthClient::check(std::chrono::milliseconds timeout) {
     grpc::ClientContext context;
-    context.set_deadline(std::chrono::system_clock::now() + timeout);
+    setDeadline(context, timeout);
 
     HealthCheckRequest request;
     request.set_service("deepstream");

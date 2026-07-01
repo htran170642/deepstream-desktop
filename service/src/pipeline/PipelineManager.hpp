@@ -11,7 +11,6 @@
 
 #include "CameraModel.hpp"
 #include "pipeline/Frame.hpp"
-#include "pipeline/Frame.hpp"
 #include "pipeline/Detection.hpp"
 #include "pipeline/DetectionProcessor.hpp"
 #include "pipeline/Pipeline.hpp"
