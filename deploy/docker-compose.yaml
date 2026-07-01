@@ -14,8 +14,21 @@ services:
               capabilities: [gpu]
     environment:
       - DSD_NVINFER_CONFIG=/configs/config_infer_primary.txt
+    # Notification + override config (Slack/Telegram/SMTP/...). Optional: copy
+    # deploy/.env.example to deploy/.env and fill in. Missing file is fine.
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "50051:50051"
+    # Advisory: the port is open only once the gRPC server has bound. start_period
+    # covers the one-time engine build on a cold cache.
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/50051' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 90s
     # cwd for the service (deepstream.db is written here); kept off /workspace
     # so the volume does not shadow the built binary.
     working_dir: /data

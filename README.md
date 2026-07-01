@@ -135,5 +135,16 @@ concepts each phase exercised — see [docs/interview/](docs/interview/).
 
 ## Deployment
 
-The desktop app runs natively; the service can run inside the NVIDIA DeepStream
-container (see `deploy/`). Build the container image with `ENABLE_DEEPSTREAM=ON`.
+The desktop app runs natively; the service runs inside the NVIDIA DeepStream container on the
+GPU. **Prerequisites:** an NVIDIA GPU + driver and Docker with the
+[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
+```bash
+cp deploy/.env.example deploy/.env    # optional: notification tokens / SMTP creds
+docker compose -f deploy/docker-compose.yaml up --build   # build + run the service on GPU
+./build/desktop/desktop                                   # native desktop, connects to :50051
+```
+
+The container builds the service with `ENABLE_DEEPSTREAM=ON` and, on first run, pre-builds and
+caches the TensorRT engine (a one-time ~30–60s cost). See [deploy/README.md](deploy/README.md)
+for engine caching, volumes, and the healthcheck.

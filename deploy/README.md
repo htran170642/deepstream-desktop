@@ -3,6 +3,12 @@
 The service runs in the DeepStream 8.0 container on the GPU; the Qt desktop runs natively on
 the host and talks to it over gRPC (`localhost:50051`).
 
+## Prerequisites
+
+- NVIDIA GPU + driver
+- Docker with the **[nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)**
+  (so the container can access the GPU via `driver: nvidia`)
+
 ## Build & run
 
 ```bash
@@ -11,45 +17,46 @@ docker compose -f deploy/docker-compose.yaml up --build   # build image + run se
 ./build/desktop/desktop                                   # host desktop (separate terminal)
 ```
 
-In the desktop: **Cameras → Add** a camera with
+On the **first** run the container pre-builds the TensorRT engine (~30–60s, see below);
+subsequent runs start in a few seconds. In the desktop: **Cameras → Add** a camera with
 `rtsp_url = file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4`,
 then **Live View → camera id → Start** to see video + boxes + FPS.
 
 Volumes (survive `down`; removed only by `down -v`):
-- `engine-cache` → the TensorRT engine (see below)
-- `service-db` → the SQLite camera DB
+- `engine-cache` → the cached TensorRT engine
+- `service-db` → the SQLite camera + alert DB
 
-## ⚠️ TensorRT engine caching gotcha
+## Configuration (`.env`)
+
+Notification channels and other `DSD_*` settings are passed to the container via an optional
+env file:
+
+```bash
+cp deploy/.env.example deploy/.env    # then fill in Slack/Telegram/SMTP/... as needed
+```
+
+`deploy/.env` is git-ignored (it holds secrets); the compose `env_file` is `required: false`,
+so it's fine to omit — unset channels are simply skipped.
+
+## TensorRT engine caching (now automatic)
 
 `nvinfer` uses `model-engine-file` (in `configs/config_infer_primary.txt`) to **load** an
 engine, but when it **builds** one it serializes it **next to the ONNX** (in the image,
-ephemeral) — it does *not* write to `model-engine-file`. So the engine is rebuilt (~30–60s)
-on every fresh container unless we pre-seed the cache.
+ephemeral) — not to `model-engine-file`. So without help the engine would be rebuilt on every
+fresh container.
 
-**Pre-build the engine once into the `engine-cache` volume** (build + copy to the load path):
-
-```bash
-ENG=/opt/nvidia/deepstream/deepstream-8.0/samples/models/Primary_Detector/resnet18_trafficcamnet_pruned.onnx_b4_gpu0_fp16.engine
-docker run --rm --gpus all \
-  -v deploy_engine-cache:/engine-cache \
-  -v "$(pwd)/configs:/configs" \
-  --entrypoint bash \
-  nvcr.io/nvidia/deepstream:8.0-triton-multiarch -lc "
-    gst-launch-1.0 -e \
-      uridecodebin uri=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4 ! \
-      m.sink_0 nvstreammux name=m batch-size=1 width=1920 height=1080 ! \
-      nvinfer config-file-path=/configs/config_infer_primary.txt ! fakesink sync=0 >/dev/null 2>&1
-    cp '$ENG' /engine-cache/trafficcamnet_b4_gpu0_fp16.engine
-  "
-# verify:
-docker run --rm -v deploy_engine-cache:/c alpine ls -la /c   # should show the .engine
-```
-
-After this, `StartCamera` loads the cached engine in a few seconds instead of rebuilding.
-(TODO: fold this into an entrypoint/init step so it's automatic.)
+[`entrypoint.sh`](entrypoint.sh) handles this automatically: on start, if
+`/engine-cache/trafficcamnet_b4_gpu0_fp16.engine` is missing, it runs a throwaway `gst-launch`
+pipeline so `nvinfer` builds the engine, copies it into the `engine-cache` volume, then execs
+the service. It's idempotent — once the volume holds the engine (it survives `down`), startup
+skips the build. The first `docker compose up` therefore takes the one-time build hit; every
+run after is fast.
 
 ## Notes
-- First `StartCamera` blocks while nvinfer prepares the engine, so the desktop's StartCamera
-  RPC uses a generous deadline. Pre-building the engine keeps it fast.
+
+- **Healthcheck**: compose probes TCP `50051`; `start_period` (90s) covers the cold-cache
+  engine build, so the container isn't marked unhealthy while it warms up.
+- First `StartCamera` after a cold start still blocks briefly while `nvinfer` loads the engine,
+  so the desktop's StartCamera RPC uses a generous deadline.
 - On EOS (the sample file ending) the pipeline **auto-stops** (it does not loop). Press Stop
   then Start — or just Start — to replay; the pipeline is recreated.

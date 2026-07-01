@@ -6,3 +6,6 @@ compile_commands.json
 
 # Service runtime database
 deepstream.db
+
+# Deployment secrets (notification tokens, SMTP creds) — template is .env.example
+deploy/.env

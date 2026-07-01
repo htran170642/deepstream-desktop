@@ -32,5 +32,9 @@ RUN cmake -S . -B build -G Ninja \
 # volume so it is built once.
 ENV DSD_NVINFER_CONFIG=/configs/config_infer_primary.txt
 
-# Override the base image's banner entrypoint with our service.
-ENTRYPOINT ["/workspace/build/service/service"]
+# Entrypoint pre-builds + caches the TensorRT engine, then execs the service.
+COPY deploy/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Override the base image's banner entrypoint with ours.
+ENTRYPOINT ["/entrypoint.sh"]
